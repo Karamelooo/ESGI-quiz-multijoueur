@@ -1,0 +1,24 @@
+{
+    "questions": [
+    {
+        "question": "Qui a écrit Les Misérables ?",
+        "options": [
+            "Victor Hugo",
+            "Emile Zola",
+            "Albert Camus",
+            "Jean-Paul Sartre"
+        ],
+        "answer": "Victor Hugo"
+        },
+        {
+            "question": "Que donne 9 x 8 ?",
+            "options": [
+                "72",
+                "81",
+                "64",
+                "88"
+            ],
+            "answer": "72"
+        }
+    ]
+}
