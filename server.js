@@ -30,15 +30,14 @@ app.get('/', (req, res) => {
 io.on('connection', (socket) => {
     console.log('Nouvelle connexion : ', socket.id);
 
-    socket.on('disconnect', () => {
-        console.log('Déconnexion : ', socket.id);
-
-        socket.on('ping', () => {
-            console.log('Ping reçu de : ', socket.id);
-            socket.emit('pong', { message: 'Pong', timestamp: Date.now() });
-        });
+    socket.on('ping', () => {
+        console.log('Ping reçu de : ', socket.id);
+        socket.emit('pong', { message: 'Pong', timestamp: Date.now() });
     });
 
+    socket.on('disconnect', () => {
+        console.log('Déconnexion : ', socket.id);
+    });
 });
 
 server.listen(PORT, () => {
