@@ -19,6 +19,86 @@
                 "88"
             ],
             "answer": "72"
+        },
+        {
+            "question": "Quelle est la capitale de la France ?",
+            "options": [
+                "Lyon",
+                "Marseille",
+                "Paris",
+                "Toulouse"
+            ],
+            "answer": "Paris"
+        },
+        {
+            "question": "En quelle année a eu lieu la Révolution française ?",
+            "options": [
+                "1789",
+                "1799",
+                "1769",
+                "1779"
+            ],
+            "answer": "1789"
+        },
+        {
+            "question": "Quel est le plus grand océan du monde ?",
+            "options": [
+                "Océan Atlantique",
+                "Océan Pacifique",
+                "Océan Indien",
+                "Océan Arctique"
+            ],
+            "answer": "Océan Pacifique"
+        },
+        {
+            "question": "Combien de côtés a un hexagone ?",
+            "options": [
+                "5",
+                "6",
+                "7",
+                "8"
+            ],
+            "answer": "6"
+        },
+        {
+            "question": "Quel est le symbole chimique de l'or ?",
+            "options": [
+                "Ag",
+                "Au",
+                "Fe",
+                "Cu"
+            ],
+            "answer": "Au"
+        },
+        {
+            "question": "Qui a peint la Joconde ?",
+            "options": [
+                "Michel-Ange",
+                "Raphaël",
+                "Léonard de Vinci",
+                "Botticelli"
+            ],
+            "answer": "Léonard de Vinci"
+        },
+        {
+            "question": "Quel est le plus grand désert du monde ?",
+            "options": [
+                "Désert du Sahara",
+                "Désert d'Arabie",
+                "Désert de Gobi",
+                "Désert d'Antarctique"
+            ],
+            "answer": "Désert du Sahara"
+        },
+        {
+            "question": "Combien de joueurs composent une équipe de football ?",
+            "options": [
+                "10",
+                "11",
+                "12",
+                "9"
+            ],
+            "answer": "11"
         }
     ]
 }

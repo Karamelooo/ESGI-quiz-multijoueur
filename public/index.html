@@ -54,6 +54,46 @@
                 <button onclick="startGame()" class="btn-primary" id="startBtn" disabled>Démarrer le quiz</button>
             </div>
         </div>
+
+        <div id="gameScreen" class="screen hidden">
+            <div class="game-header">
+                <h2>🎯 Quiz en cours</h2>
+                <div class="game-info">
+                    <span>Question <span id="currentQuestionNumber">1</span>/<span id="totalQuestions">5</span></span>
+                    <div class="timer">
+                        <span id="timeLeft">30</span>s
+                    </div>
+                </div>
+            </div>
+
+            <div class="question-container">
+                <h3 id="questionText">Chargement de la question...</h3>
+                <div id="optionsContainer" class="options-grid">
+                </div>
+            </div>
+
+            <div class="players-status">
+                <h4>Statut des joueurs</h4>
+                <div id="playersStatusList"></div>
+            </div>
+        </div>
+
+        <div id="resultsScreen" class="screen hidden">
+            <h2>📊 Résultats de la question</h2>
+            <div id="questionResults"></div>
+            <div class="scores-display">
+                <h3>Scores actuels</h3>
+                <div id="currentScores"></div>
+            </div>
+        </div>
+
+        <div id="gameEndScreen" class="screen hidden">
+            <h2>🏆 Fin du jeu</h2>
+            <div id="finalResults"></div>
+            <div class="game-end-actions">
+                <button onclick="backToMain()" class="btn-primary">Retour au menu principal</button>
+            </div>
+        </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -61,10 +101,16 @@
         const socket = io();
         let currentPlayer = null;
         let currentRoom = null;
+        let gameTimer = null;
+        let timeLeft = 30;
 
         const loginScreen = document.getElementById('loginScreen');
         const mainScreen = document.getElementById('mainScreen');
         const roomScreen = document.getElementById('roomScreen');
+        const gameScreen = document.getElementById('gameScreen');
+        const resultsScreen = document.getElementById('resultsScreen');
+        const gameEndScreen = document.getElementById('gameEndScreen');
+        
         const pseudoInput = document.getElementById('pseudoInput');
         const playerName = document.getElementById('playerName');
         const roomsList = document.getElementById('roomsList');
@@ -73,6 +119,16 @@
         const roomPlayerCount = document.getElementById('roomPlayerCount');
         const roomPlayersList = document.getElementById('roomPlayersList');
         const startBtn = document.getElementById('startBtn');
+        
+        const currentQuestionNumber = document.getElementById('currentQuestionNumber');
+        const totalQuestions = document.getElementById('totalQuestions');
+        const timeLeftElement = document.getElementById('timeLeft');
+        const questionText = document.getElementById('questionText');
+        const optionsContainer = document.getElementById('optionsContainer');
+        const playersStatusList = document.getElementById('playersStatusList');
+        const questionResults = document.getElementById('questionResults');
+        const currentScores = document.getElementById('currentScores');
+        const finalResults = document.getElementById('finalResults');
 
         function joinGame() {
             const pseudo = pseudoInput.value.trim();
@@ -103,16 +159,51 @@
         }
 
         function startGame() {
-            alert('Fonctionnalité à implémenter');
+            if (currentRoom) {
+                socket.emit('startGame', { roomId: currentRoom });
+            }
+        }
+
+        function submitAnswer(answer) {
+            socket.emit('submitAnswer', { answer: answer });
+            
+            const buttons = optionsContainer.querySelectorAll('button');
+            buttons.forEach(btn => btn.disabled = true);
+        }
+
+        function backToMain() {
+            gameEndScreen.classList.add('hidden');
+            mainScreen.classList.remove('hidden');
+        }
+
+        function startTimer(duration) {
+            timeLeft = duration / 1000;
+            timeLeftElement.textContent = timeLeft;
+            
+            if (gameTimer) clearInterval(gameTimer);
+            
+            gameTimer = setInterval(() => {
+                timeLeft--;
+                timeLeftElement.textContent = timeLeft;
+                
+                if (timeLeft <= 0) {
+                    clearInterval(gameTimer);
+                }
+            }, 1000);
+        }
+
+        function showScreen(screen) {
+            [loginScreen, mainScreen, roomScreen, gameScreen, resultsScreen, gameEndScreen].forEach(s => {
+                s.classList.add('hidden');
+            });
+            screen.classList.remove('hidden');
         }
 
         socket.on('playerJoined', (data) => {
             currentPlayer = data.pseudo;
             playerName.textContent = currentPlayer;
             
-            loginScreen.classList.add('hidden');
-            mainScreen.classList.remove('hidden');
-            
+            showScreen(mainScreen);
             updateRoomsList(data.availableRooms);
         });
 
@@ -121,9 +212,7 @@
             roomId.textContent = data.roomId;
             roomPlayerCount.textContent = data.playerCount;
             
-            mainScreen.classList.add('hidden');
-            roomScreen.classList.remove('hidden');
-            
+            showScreen(roomScreen);
             updateRoomPlayersList(data.players);
             updateStartButton(data.playerCount);
         });
@@ -133,9 +222,7 @@
             roomId.textContent = data.roomId;
             roomPlayerCount.textContent = data.playerCount;
             
-            mainScreen.classList.add('hidden');
-            roomScreen.classList.remove('hidden');
-            
+            showScreen(roomScreen);
             updateRoomPlayersList(data.players);
             updateStartButton(data.playerCount);
         });
@@ -161,6 +248,78 @@
                 updateRoomPlayersList(data.remainingPlayers);
                 updateStartButton(data.playerCount);
             }
+        });
+
+        socket.on('gameStarted', (data) => {
+            showScreen(gameScreen);
+            
+            currentQuestionNumber.textContent = data.question.questionNumber;
+            totalQuestions.textContent = data.question.totalQuestions;
+            questionText.textContent = data.question.question;
+            
+            optionsContainer.innerHTML = '';
+            data.question.options.forEach((option, index) => {
+                const button = document.createElement('button');
+                button.className = 'option-btn';
+                button.textContent = option;
+                button.onclick = () => submitAnswer(option);
+                optionsContainer.appendChild(button);
+            });
+            
+            updatePlayersStatusList(data.players);
+            
+            startTimer(data.question.timeLimit);
+        });
+
+        socket.on('playerAnswered', (data) => {
+            const playerElements = playersStatusList.querySelectorAll('.player-status');
+            playerElements.forEach(element => {
+                if (element.textContent.includes(data.player.pseudo)) {
+                    element.classList.add('answered');
+                    element.textContent = `${data.player.pseudo}`;
+                }
+            });
+        });
+
+        socket.on('questionResults', (data) => {
+            showScreen(resultsScreen);
+            
+            questionResults.innerHTML = `
+                <div class="correct-answer">
+                    <h3>Réponse correcte : ${data.correctAnswer}</h3>
+                </div>
+            `;
+            
+            currentScores.innerHTML = '';
+            data.scores.forEach(player => {
+                const playerDiv = document.createElement('div');
+                playerDiv.className = 'score-item';
+                playerDiv.innerHTML = `
+                    <span>${player.pseudo}</span>
+                    <span>${player.score} points</span>
+                    <span>${player.correct ? '✅' : player.answered ? '❌' : '⏰'}</span>
+                `;
+                currentScores.appendChild(playerDiv);
+            });
+        });
+
+        socket.on('gameEnded', (data) => {
+            showScreen(gameEndScreen);
+            
+            finalResults.innerHTML = `
+                <div class="winner">
+                    <h3>Vainqueur : ${data.winner.pseudo} (${data.winner.score} points)</h3>
+                </div>
+                <div class="final-scores">
+                    ${data.finalScores.map((player, index) => `
+                        <div class="final-score-item ${index === 0 ? 'winner' : ''}">
+                            <span class="rank">#${index + 1}</span>
+                            <span class="name">${player.pseudo}</span>
+                            <span class="score">${player.score} points</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
         });
 
         socket.on('error', (data) => {
@@ -212,6 +371,17 @@
                 playerDiv.className = 'player-item';
                 playerDiv.textContent = `👤 ${player.pseudo}`;
                 roomPlayersList.appendChild(playerDiv);
+            });
+        }
+
+        function updatePlayersStatusList(players) {
+            playersStatusList.innerHTML = '';
+            
+            players.forEach(player => {
+                const playerDiv = document.createElement('div');
+                playerDiv.className = 'player-status';
+                playerDiv.textContent = `${player.pseudo} ⏳`;
+                playersStatusList.appendChild(playerDiv);
             });
         }
 
