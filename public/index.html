@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Quiz Multijoueur ESGI</title>
+    <link rel="stylesheet" type="text/css" href="main.css">
+</head>
+<body>
+    <h1>Quiz Multijoueur ESGI</h1>
+    <div id="status">Connexion au serveur...</div>
+    <button onclick="testConnection()">Tester la connexion</button>
+    <div id="info">Hello</div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const statusDiv = document.getElementById('status');
+        const infoDiv = document.getElementById('info');
+
+        socket.on('connect', () => {
+            statusDiv.textContent = "Connecté au serveur !";
+        });
+
+        socket.on('disconnect', () => {
+            statusDiv.textContent = "Déconnecté du serveur.";
+        });
+
+        socket.on('pong', (data) => {
+            infoDiv.textContent = "Réponse du serveur : " + data.message + " - " + data.timestamp;
+        });
+
+        function testConnection() {
+            console.log('Ping envoyé');
+            socket.emit('ping');
+        }
+
+    </script>
+</body>
+</html>
