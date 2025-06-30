@@ -47,6 +47,7 @@ function createRoom() {
         status: 'waiting',
         createdAt: new Date().toISOString(),
         maxPlayers: 4,
+        creator: null,
         gameState: {
             isPlaying: false,
             currentQuestion: 0,
@@ -54,19 +55,23 @@ function createRoom() {
             scores: new Map(),
             answers: new Map(),
             questionStartTime: null,
-            questionDuration: 30000
+            questionDuration: 10000
         }
     });
     return roomId;
 }
 
 function getAvailableRooms() {
-    return Array.from(rooms.values()).map(room => ({
-        id: room.id,
-        playerCount: room.players.size,
-        maxPlayers: room.maxPlayers,
-        status: room.status
-    }));
+    return Array.from(rooms.values()).map(room => {
+        const creator = room.creator ? room.players.get(room.creator) : null;
+        return {
+            id: room.id,
+            playerCount: room.players.size,
+            maxPlayers: room.maxPlayers,
+            status: room.status,
+            creatorName: creator ? creator.pseudo : 'Inconnu'
+        };
+    });
 }
 
 function getOnlinePlayers() {
@@ -119,10 +124,13 @@ function sendQuestionToRoom(roomId) {
     
     io.to(roomId).emit('gameStarted', {
         question: questionData,
-        players: Array.from(room.players.values()).map(p => ({ pseudo: p.pseudo }))
+        players: Array.from(room.players.values()).map(p => ({ 
+            id: p.id,
+            pseudo: p.pseudo 
+        }))
     });
     
-    setTimeout(() => {
+    room.gameState.safetyTimer = setTimeout(() => {
         if (room.gameState.currentQuestion === room.gameState.questions.indexOf(currentQ)) {
             showQuestionResults(roomId);
         }
@@ -139,7 +147,7 @@ function showQuestionResults(roomId) {
     room.gameState.answers.forEach((answer, playerId) => {
         if (answer === correctAnswer) {
             const currentScore = room.gameState.scores.get(playerId) || 0;
-            room.gameState.scores.set(playerId, currentScore + 10);
+            room.gameState.scores.set(playerId, currentScore + 1);
         }
     });
     
@@ -231,6 +239,7 @@ io.on('connection', (socket) => {
         const room = rooms.get(roomId);
         
         room.players.set(socket.id, player);
+        room.creator = socket.id;
         player.roomId = roomId;
         
         socket.join(roomId);
@@ -238,7 +247,11 @@ io.on('connection', (socket) => {
         socket.emit('roomCreated', { 
             roomId: roomId,
             playerCount: room.players.size,
-            players: Array.from(room.players.values()).map(p => ({ pseudo: p.pseudo }))
+            players: Array.from(room.players.values()).map(p => ({ 
+                id: p.id,
+                pseudo: p.pseudo 
+            })),
+            isCreator: true
         });
         
         io.emit('roomsUpdate', {
@@ -274,12 +287,23 @@ io.on('connection', (socket) => {
         socket.emit('roomJoined', {
             roomId: roomId,
             playerCount: room.players.size,
-            players: Array.from(room.players.values()).map(p => ({ pseudo: p.pseudo }))
+            players: Array.from(room.players.values()).map(p => ({ 
+                id: p.id,
+                pseudo: p.pseudo 
+            })),
+            isCreator: room.creator === socket.id
         });
         
-        socket.to(roomId).emit('playerJoinedRoom', {
-            player: { pseudo: player.pseudo },
-            playerCount: room.players.size
+        io.to(roomId).emit('playerJoinedRoom', {
+            player: { 
+                id: socket.id,
+                pseudo: player.pseudo 
+            },
+            playerCount: room.players.size,
+            players: Array.from(room.players.values()).map(p => ({ 
+                id: p.id,
+                pseudo: p.pseudo 
+            }))
         });
         
         io.emit('roomsUpdate', {
@@ -295,6 +319,11 @@ io.on('connection', (socket) => {
         if (player && room) {
             room.players.delete(socket.id);
             player.roomId = null;
+            
+            if (room.creator === socket.id && room.players.size > 0) {
+                const firstPlayerId = Array.from(room.players.keys())[0];
+                room.creator = firstPlayerId;
+            }
             
             socket.leave(roomId);
             
@@ -323,6 +352,11 @@ io.on('connection', (socket) => {
             return;
         }
         
+        if (room.creator !== socket.id) {
+            socket.emit('error', { message: 'Seul l\'hôte de la salle peut démarrer le jeu' });
+            return;
+        }
+        
         if (room.players.size < 2) {
             socket.emit('error', { message: 'Il faut au moins 2 joueurs pour démarrer' });
             return;
@@ -344,9 +378,21 @@ io.on('connection', (socket) => {
         
         room.gameState.answers.set(socket.id, answer);
         
-        socket.to(player.roomId).emit('playerAnswered', {
-            player: { pseudo: player.pseudo }
+        io.to(player.roomId).emit('playerAnswered', {
+            player: { 
+                id: socket.id,
+                pseudo: player.pseudo 
+            }
         });
+        
+        if (room.gameState.answers.size === room.players.size) {
+            if (room.gameState.safetyTimer) {
+                clearTimeout(room.gameState.safetyTimer);
+                room.gameState.safetyTimer = null;
+            }
+            
+            showQuestionResults(player.roomId);
+        }
     });
 
     socket.on('ping', () => {

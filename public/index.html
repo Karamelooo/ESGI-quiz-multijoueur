@@ -103,6 +103,7 @@
         let currentRoom = null;
         let gameTimer = null;
         let timeLeft = 30;
+        let isRoomCreator = false;
 
         const loginScreen = document.getElementById('loginScreen');
         const mainScreen = document.getElementById('mainScreen');
@@ -209,6 +210,7 @@
 
         socket.on('roomCreated', (data) => {
             currentRoom = data.roomId;
+            isRoomCreator = data.isCreator;
             roomId.textContent = data.roomId;
             roomPlayerCount.textContent = data.playerCount;
             
@@ -219,6 +221,7 @@
 
         socket.on('roomJoined', (data) => {
             currentRoom = data.roomId;
+            isRoomCreator = data.isCreator;
             roomId.textContent = data.roomId;
             roomPlayerCount.textContent = data.playerCount;
             
@@ -231,6 +234,9 @@
             if (currentRoom) {
                 roomPlayerCount.textContent = data.playerCount;
                 updateStartButton(data.playerCount);
+                if (data.players) {
+                    updateRoomPlayersList(data.players);
+                }
             }
         });
 
@@ -274,11 +280,21 @@
         socket.on('playerAnswered', (data) => {
             const playerElements = playersStatusList.querySelectorAll('.player-status');
             playerElements.forEach(element => {
-                if (element.textContent.includes(data.player.pseudo)) {
+                if (element.dataset.playerId === data.player.id) {
                     element.classList.add('answered');
-                    element.textContent = `${data.player.pseudo}`;
+                    element.textContent = `${data.player.pseudo} ✅`;
                 }
             });
+            
+            const answeredPlayers = playersStatusList.querySelectorAll('.answered').length;
+            const totalPlayers = playersStatusList.querySelectorAll('.player-status').length;
+            
+            if (answeredPlayers === totalPlayers) {
+                if (gameTimer) {
+                    clearInterval(gameTimer);
+                    gameTimer = null;
+                }
+            }
         });
 
         socket.on('questionResults', (data) => {
@@ -338,7 +354,7 @@
                 const roomDiv = document.createElement('div');
                 roomDiv.className = 'room-item';
                 roomDiv.innerHTML = `
-                    <span>Salle ${room.id} (${room.playerCount}/${room.maxPlayers})</span>
+                    <span>Room de ${room.creatorName} (${room.playerCount}/${room.maxPlayers})</span>
                     <button onclick="joinRoom('${room.id}')" ${room.playerCount >= room.maxPlayers ? 'disabled' : ''}>
                         ${room.playerCount >= room.maxPlayers ? 'Pleine' : 'Rejoindre'}
                     </button>
@@ -369,6 +385,7 @@
             players.forEach(player => {
                 const playerDiv = document.createElement('div');
                 playerDiv.className = 'player-item';
+                playerDiv.dataset.playerId = player.id;
                 playerDiv.textContent = `👤 ${player.pseudo}`;
                 roomPlayersList.appendChild(playerDiv);
             });
@@ -380,13 +397,15 @@
             players.forEach(player => {
                 const playerDiv = document.createElement('div');
                 playerDiv.className = 'player-status';
+                playerDiv.dataset.playerId = player.id;
                 playerDiv.textContent = `${player.pseudo} ⏳`;
                 playersStatusList.appendChild(playerDiv);
             });
         }
 
         function updateStartButton(playerCount) {
-            startBtn.disabled = playerCount < 2;
+            startBtn.disabled = playerCount < 2 || !isRoomCreator;
+            startBtn.textContent = isRoomCreator ? 'Démarrer le quiz' : 'En attente de l\'hôte...';
         }
 
         pseudoInput.addEventListener('keypress', (e) => {
