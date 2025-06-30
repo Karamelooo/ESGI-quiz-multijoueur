@@ -3,37 +3,227 @@
 <head>
     <meta charset="UTF-8">
     <title>Quiz Multijoueur ESGI</title>
-    <link rel="stylesheet" type="text/css" href="main.css">
+    <link rel="stylesheet" href="main.css">
 </head>
 <body>
-    <h1>Quiz Multijoueur ESGI</h1>
-    <div id="status">Connexion au serveur...</div>
-    <button onclick="testConnection()">Tester la connexion</button>
-    <div id="info">Hello</div>
+    <div id="app">
+        <div id="loginScreen" class="screen">
+            <h1>🎮 Quiz Multijoueur ESGI</h1>
+            <div class="login-form">
+                <input type="text" id="pseudoInput" placeholder="Votre pseudo" maxlength="20">
+                <button onclick="joinGame()">Rejoindre le jeu</button>
+            </div>
+        </div>
+
+        <div id="mainScreen" class="screen hidden">
+            <h1>Salles de jeu</h1>
+            
+            <div class="player-info">
+                <span>Joueur: <strong id="playerName"></strong></span>
+            </div>
+
+            <div class="actions">
+                <button onclick="createRoom()" class="btn-primary">Créer une salle</button>
+            </div>
+
+            <div class="rooms-section">
+                <h3>Salles disponibles</h3>
+                <div id="roomsList"></div>
+            </div>
+
+            <div class="players-section">
+                <h3>Joueurs en ligne</h3>
+                <div id="playersList"></div>
+            </div>
+        </div>
+
+        <div id="roomScreen" class="screen hidden">
+            <h2>🏠 Salle: <span id="roomId"></span></h2>
+            
+            <div class="room-info">
+                <span>Joueurs: <span id="roomPlayerCount">0</span>/4</span>
+            </div>
+
+            <div class="players-in-room">
+                <h3>Joueurs dans la salle</h3>
+                <div id="roomPlayersList"></div>
+            </div>
+
+            <div class="room-actions">
+                <button onclick="leaveRoom()" class="btn-secondary">Quitter la salle</button>
+                <button onclick="startGame()" class="btn-primary" id="startBtn" disabled>Démarrer le quiz</button>
+            </div>
+        </div>
+    </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        const statusDiv = document.getElementById('status');
-        const infoDiv = document.getElementById('info');
+        let currentPlayer = null;
+        let currentRoom = null;
 
-        socket.on('connect', () => {
-            statusDiv.textContent = "Connecté au serveur !";
-        });
+        const loginScreen = document.getElementById('loginScreen');
+        const mainScreen = document.getElementById('mainScreen');
+        const roomScreen = document.getElementById('roomScreen');
+        const pseudoInput = document.getElementById('pseudoInput');
+        const playerName = document.getElementById('playerName');
+        const roomsList = document.getElementById('roomsList');
+        const playersList = document.getElementById('playersList');
+        const roomId = document.getElementById('roomId');
+        const roomPlayerCount = document.getElementById('roomPlayerCount');
+        const roomPlayersList = document.getElementById('roomPlayersList');
+        const startBtn = document.getElementById('startBtn');
 
-        socket.on('disconnect', () => {
-            statusDiv.textContent = "Déconnecté du serveur.";
-        });
-
-        socket.on('pong', (data) => {
-            infoDiv.textContent = "Réponse du serveur : " + data.message + " - " + data.timestamp;
-        });
-
-        function testConnection() {
-            console.log('Ping envoyé');
-            socket.emit('ping');
+        function joinGame() {
+            const pseudo = pseudoInput.value.trim();
+            if (pseudo.length < 3) {
+                alert('Le pseudo doit contenir au moins 3 caractères');
+                return;
+            }
+            
+            socket.emit('joinGame', { pseudo: pseudo });
         }
 
+        function createRoom() {
+            socket.emit('createRoom');
+        }
+
+        function joinRoom(roomId) {
+            socket.emit('joinRoom', { roomId: roomId });
+        }
+
+        function leaveRoom() {
+            if (currentRoom) {
+                socket.emit('leaveRoom', { roomId: currentRoom });
+                currentRoom = null;
+                
+                roomScreen.classList.add('hidden');
+                mainScreen.classList.remove('hidden');
+            }
+        }
+
+        function startGame() {
+            alert('Fonctionnalité à implémenter');
+        }
+
+        socket.on('playerJoined', (data) => {
+            currentPlayer = data.pseudo;
+            playerName.textContent = currentPlayer;
+            
+            loginScreen.classList.add('hidden');
+            mainScreen.classList.remove('hidden');
+            
+            updateRoomsList(data.availableRooms);
+        });
+
+        socket.on('roomCreated', (data) => {
+            currentRoom = data.roomId;
+            roomId.textContent = data.roomId;
+            roomPlayerCount.textContent = data.playerCount;
+            
+            mainScreen.classList.add('hidden');
+            roomScreen.classList.remove('hidden');
+            
+            updateRoomPlayersList(data.players);
+            updateStartButton(data.playerCount);
+        });
+
+        socket.on('roomJoined', (data) => {
+            currentRoom = data.roomId;
+            roomId.textContent = data.roomId;
+            roomPlayerCount.textContent = data.playerCount;
+            
+            mainScreen.classList.add('hidden');
+            roomScreen.classList.remove('hidden');
+            
+            updateRoomPlayersList(data.players);
+            updateStartButton(data.playerCount);
+        });
+
+        socket.on('playerJoinedRoom', (data) => {
+            if (currentRoom) {
+                roomPlayerCount.textContent = data.playerCount;
+                updateStartButton(data.playerCount);
+            }
+        });
+
+        socket.on('roomsUpdate', (data) => {
+            updateRoomsList(data.rooms);
+        });
+
+        socket.on('playersUpdate', (data) => {
+            updatePlayersList(data.players);
+        });
+
+        socket.on('playerLeft', (data) => {
+            if (currentRoom) {
+                roomPlayerCount.textContent = data.playerCount;
+                updateRoomPlayersList(data.remainingPlayers);
+                updateStartButton(data.playerCount);
+            }
+        });
+
+        socket.on('error', (data) => {
+            alert('Erreur: ' + data.message);
+        });
+
+        function updateRoomsList(rooms) {
+            roomsList.innerHTML = '';
+            
+            if (rooms.length === 0) {
+                roomsList.innerHTML = '<p>Aucune salle disponible</p>';
+                return;
+            }
+            
+            rooms.forEach(room => {
+                const roomDiv = document.createElement('div');
+                roomDiv.className = 'room-item';
+                roomDiv.innerHTML = `
+                    <span>Salle ${room.id} (${room.playerCount}/${room.maxPlayers})</span>
+                    <button onclick="joinRoom('${room.id}')" ${room.playerCount >= room.maxPlayers ? 'disabled' : ''}>
+                        ${room.playerCount >= room.maxPlayers ? 'Pleine' : 'Rejoindre'}
+                    </button>
+                `;
+                roomsList.appendChild(roomDiv);
+            });
+        }
+
+        function updatePlayersList(players) {
+            playersList.innerHTML = '';
+            
+            if (players.length === 0) {
+                playersList.innerHTML = '<p>Aucun joueur en ligne</p>';
+                return;
+            }
+            
+            players.forEach(player => {
+                const playerDiv = document.createElement('div');
+                playerDiv.className = 'player-item';
+                playerDiv.textContent = `${player.pseudo}`;
+                playersList.appendChild(playerDiv);
+            });
+        }
+
+        function updateRoomPlayersList(players) {
+            roomPlayersList.innerHTML = '';
+            
+            players.forEach(player => {
+                const playerDiv = document.createElement('div');
+                playerDiv.className = 'player-item';
+                playerDiv.textContent = `👤 ${player.pseudo}`;
+                roomPlayersList.appendChild(playerDiv);
+            });
+        }
+
+        function updateStartButton(playerCount) {
+            startBtn.disabled = playerCount < 2;
+        }
+
+        pseudoInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                joinGame();
+            }
+        });
     </script>
 </body>
 </html>
