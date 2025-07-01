@@ -2,13 +2,13 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Quiz Multijoueur ESGI</title>
+    <title>Quiz</title>
     <link rel="stylesheet" href="main.css">
 </head>
 <body>
     <div id="app">
         <div id="loginScreen" class="screen">
-            <h1>🎮 Quiz Multijoueur ESGI</h1>
+            <h1>Quiz</h1>
             <div class="login-form">
                 <input type="text" id="pseudoInput" placeholder="Votre pseudo" maxlength="20">
                 <button onclick="joinGame()">Rejoindre le jeu</button>
@@ -38,10 +38,10 @@
         </div>
 
         <div id="roomScreen" class="screen hidden">
-            <h2>🏠 Salle: <span id="roomId"></span></h2>
+            <h2>Salle : <span id="roomId"></span></h2>
             
             <div class="room-info">
-                <span>Joueurs: <span id="roomPlayerCount">0</span>/4</span>
+                <span>Joueurs : <span id="roomPlayerCount">0</span>/4</span>
             </div>
 
             <div class="players-in-room">
@@ -79,7 +79,7 @@
         </div>
 
         <div id="resultsScreen" class="screen hidden">
-            <h2>📊 Résultats de la question</h2>
+            <h2>Résultats de la question</h2>
             <div id="questionResults"></div>
             <div class="scores-display">
                 <h3>Scores actuels</h3>
