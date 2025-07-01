@@ -30,15 +30,6 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.get('/api/status', (req, res) => {
-    res.json({
-        players: players.size,
-        rooms: rooms.size,
-        status: 'En ligne',
-        timestamp: new Date().toISOString()
-    });
-});
-
 function createRoom() {
     const roomId = Math.random().toString(36).substring(2, 15);
     rooms.set(roomId, {
